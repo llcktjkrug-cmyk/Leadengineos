@@ -14,8 +14,8 @@ plugins: [
       react(),
       manus({
   
-        authUrl: env.VITE_OAUTH_SERVER_URL || "https://leadengineosapp.com",
-        apiUrl: env.VITE_OAUTH_SERVER_URL || "https://leadengineosapp.com",
+        authUrl: env.OAUTH_SERVER_URL || "https://leadengineosapp.com",
+        apiUrl: env.OAUTH_SERVER_URL || "https://leadengineosapp.com",
       })
     ],
   resolve: {
