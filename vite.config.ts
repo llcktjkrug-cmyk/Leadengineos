@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "path";
 import { defineConfig } from "vite";
 import { vitePluginManusRuntime } from "vite-plugin-manus-runtime";
-import { vitePluginManusRuntime as manus } from "vite-plugin-manus-runtime";
+
 
 
 const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime()];
@@ -13,11 +13,10 @@ const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(
 export default defineConfig({
 plugins: [
       react(),
-      manus({
-  
-        authUrl: env.OAUTH_SERVER_URL || "https://leadengineosapp.com",
-        apiUrl: env.OAUTH_SERVER_URL || "https://leadengineosapp.com",
-      })
+   vitePluginManusRuntime({
+    authUrl: "https://leadengineosapp.com",
+    apiUrl: "https://leadengineosapp.com",
+  })
     ],
   resolve: {
     alias: {
