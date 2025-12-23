@@ -1,0 +1,250 @@
+{
+  "name": "WF1: Subscription Provisioner",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "subscription-provisioner",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "subscription-provisioner"
+    },
+    {
+      "parameters": {
+        "url": "={{$env.APP_API_URL}}/api/trpc/n8n.logWorkflowRun",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{$env.TENANT_API_KEY}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "workflowName",
+              "value": "subscription_provisioner"
+            },
+            {
+              "name": "status",
+              "value": "running"
+            },
+            {
+              "name": "inputData",
+              "value": "={{JSON.stringify($json)}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "log-start",
+      "name": "Log Workflow Start",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.APP_API_URL}}/api/trpc/n8n.getTenantConfig",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{$env.TENANT_API_KEY}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "get-tenant-config",
+      "name": "Get Tenant Config",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.subscription.status}}",
+              "operation": "equals",
+              "value2": "active"
+            }
+          ]
+        }
+      },
+      "id": "check-subscription-active",
+      "name": "Check if Active",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.APP_API_URL}}/api/trpc/tenants.updateStatus",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{$env.TENANT_API_KEY}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{$json.tenant.id}}"
+            },
+            {
+              "name": "status",
+              "value": "active"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "activate-tenant",
+      "name": "Activate Tenant",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1050, 200]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.APP_API_URL}}/api/trpc/tenants.updateStatus",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{$env.TENANT_API_KEY}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{$json.tenant.id}}"
+            },
+            {
+              "name": "status",
+              "value": "paused"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "pause-tenant",
+      "name": "Pause Tenant",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1050, 400]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.APP_API_URL}}/api/trpc/n8n.updateWorkflowRun",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{$env.TENANT_API_KEY}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "runId",
+              "value": "={{$node['Log Workflow Start'].json.runId}}"
+            },
+            {
+              "name": "status",
+              "value": "success"
+            },
+            {
+              "name": "outputData",
+              "value": "={{JSON.stringify($json)}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "log-success",
+      "name": "Log Success",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, tenant: $json.tenant } }}"
+      },
+      "id": "respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1450, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [[{ "node": "Log Workflow Start", "type": "main", "index": 0 }]]
+    },
+    "Log Workflow Start": {
+      "main": [[{ "node": "Get Tenant Config", "type": "main", "index": 0 }]]
+    },
+    "Get Tenant Config": {
+      "main": [[{ "node": "Check if Active", "type": "main", "index": 0 }]]
+    },
+    "Check if Active": {
+      "main": [
+        [{ "node": "Activate Tenant", "type": "main", "index": 0 }],
+        [{ "node": "Pause Tenant", "type": "main", "index": 0 }]
+      ]
+    },
+    "Activate Tenant": {
+      "main": [[{ "node": "Log Success", "type": "main", "index": 0 }]]
+    },
+    "Pause Tenant": {
+      "main": [[{ "node": "Log Success", "type": "main", "index": 0 }]]
+    },
+    "Log Success": {
+      "main": [[{ "node": "Respond", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {},
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "versionId": "1"
+}

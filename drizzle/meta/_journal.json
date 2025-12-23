@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1765762193703,
+      "tag": "0000_flawless_colonel_america",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1765762425645,
+      "tag": "0001_messy_husk",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1765806599198,
+      "tag": "0002_cheerful_adam_destine",
+      "breakpoints": true
+    }
+  ]
+}

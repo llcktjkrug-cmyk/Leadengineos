@@ -1,0 +1,443 @@
+{
+  "name": "WF-SEO-06: CTR + Content Maintenance",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 1,
+              "triggerAtDay": 5,
+              "triggerAtHour": 10
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Weekly Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $env.DRY_RUN }}",
+              "value2": "false"
+            }
+          ]
+        }
+      },
+      "id": "dry-run-check",
+      "name": "DRY_RUN Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $env.LAUNCH_MODE }}",
+              "value2": "LIVE"
+            }
+          ]
+        }
+      },
+      "id": "launch-mode-check",
+      "name": "LAUNCH_MODE Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.googleapis.com/webmasters/v3/sites/{{ encodeURIComponent($env.SITE_URL) }}/searchAnalytics/query",
+        "authentication": "oAuth2Api",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"startDate\": \"{{ $now.minus({days: 28}).toFormat('yyyy-MM-dd') }}\",\n  \"endDate\": \"{{ $now.minus({days: 1}).toFormat('yyyy-MM-dd') }}\",\n  \"dimensions\": [\"page\", \"query\"],\n  \"rowLimit\": 500,\n  \"dimensionFilterGroups\": [{\n    \"filters\": [{\n      \"dimension\": \"page\",\n      \"operator\": \"contains\",\n      \"expression\": \"{{ $env.SITE_URL }}\"\n    }]\n  }]\n}",
+        "options": {}
+      },
+      "id": "fetch-search-console",
+      "name": "Fetch Search Console Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [850, 300],
+      "notes": "Requires Google Search Console API OAuth2 credentials"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Analyze CTR and identify weak performers\nconst rows = $input.item.json.rows || [];\nconst weakPerformers = [];\n\nfor (const row of rows) {\n  const page = row.keys[0];\n  const query = row.keys[1];\n  const impressions = row.impressions || 0;\n  const clicks = row.clicks || 0;\n  const ctr = row.ctr || 0;\n  const position = row.position || 0;\n  \n  // Identify pages with high impressions but weak CTR\n  // Threshold: impressions > 100 AND CTR < 2% AND position < 20\n  if (impressions > 100 && ctr < 0.02 && position < 20) {\n    weakPerformers.push({\n      page,\n      query,\n      impressions,\n      clicks,\n      ctr: (ctr * 100).toFixed(2) + '%',\n      position: position.toFixed(1),\n      issue: 'weak_ctr',\n      recommendation: 'Rewrite title/meta for this query'\n    });\n  }\n  \n  // Identify pages ranking 11-20 (page 2) with decent impressions\n  if (impressions > 50 && position >= 11 && position <= 20) {\n    weakPerformers.push({\n      page,\n      query,\n      impressions,\n      clicks,\n      ctr: (ctr * 100).toFixed(2) + '%',\n      position: position.toFixed(1),\n      issue: 'page_2_ranking',\n      recommendation: 'Content refresh to push to page 1'\n    });\n  }\n}\n\n// Sort by impressions (highest opportunity first)\nweakPerformers.sort((a, b) => b.impressions - a.impressions);\n\n// Limit to top 20 opportunities\nreturn weakPerformers.slice(0, 20).map(item => ({ json: item }));"
+      },
+      "id": "analyze-ctr",
+      "name": "Analyze CTR Performance",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $input.all().length }}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "id": "check-opportunities",
+      "name": "Has Opportunities?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Prepare meta rewrite prompt for weak CTR pages\nconst item = $input.item.json;\nconst batchId = `ctr_batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;\n\nconst prompt = `Rewrite the title tag and meta description for this page to improve CTR.\n\nCURRENT DATA:\n- Page: ${item.page}\n- Target Query: ${item.query}\n- Current Position: ${item.position}\n- Current CTR: ${item.ctr}\n- Impressions: ${item.impressions}\n\nREQUIREMENTS:\n- Title: 50-60 characters, include target query naturally\n- Meta: 150-155 characters, compelling with clear value prop\n- Include a subtle call-to-action or benefit\n- NO clickbait or misleading claims\n- Professional, authoritative tone\n\nOUTPUT FORMAT:\nReturn JSON with:\n- title: New title tag\n- metaDescription: New meta description\n- rationale: Brief explanation of changes`;\n\nreturn {\n  json: {\n    ...item,\n    batchId,\n    llmPrompt: prompt,\n    maintenanceType: item.issue === 'weak_ctr' ? 'meta_rewrite' : 'content_flag'\n  }\n};"
+      },
+      "id": "prepare-rewrite",
+      "name": "Prepare Meta Rewrite",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1450, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.maintenanceType }}",
+              "value2": "meta_rewrite"
+            }
+          ]
+        }
+      },
+      "id": "check-maintenance-type",
+      "name": "Meta Rewrite Only?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1650, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LEADENGINE_API_URL }}/api/llm/generate",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.LEADENGINE_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"prompt\": {{ JSON.stringify($json.llmPrompt) }},\n  \"responseFormat\": \"json\",\n  \"maxTokens\": 500\n}",
+        "options": {}
+      },
+      "id": "generate-meta",
+      "name": "Generate New Meta",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1850, 100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LEADENGINE_API_URL }}/api/seo/rollback-history",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.LEADENGINE_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"batchId\": \"{{ $json.batchId }}\",\n  \"page\": \"{{ $json.page }}\",\n  \"action\": \"meta_update\",\n  \"previousMeta\": {},\n  \"newMeta\": {{ JSON.stringify($json.newMeta) }},\n  \"query\": \"{{ $json.query }}\",\n  \"createdAt\": \"{{ $now.toISO() }}\"\n}",
+        "options": {}
+      },
+      "id": "log-rollback",
+      "name": "Log for Rollback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2050, 100]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.LEADENGINE_API_URL }}/api/seo/pages/meta",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.LEADENGINE_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"pageUrl\": \"{{ $json.page }}\",\n  \"title\": \"{{ $json.newMeta.title }}\",\n  \"metaDescription\": \"{{ $json.newMeta.metaDescription }}\",\n  \"lastOptimized\": \"{{ $now.toISO() }}\"\n}",
+        "options": {}
+      },
+      "id": "update-meta",
+      "name": "Update Page Meta",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2250, 100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LEADENGINE_API_URL }}/api/seo/content-flags",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.LEADENGINE_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"page\": \"{{ $json.page }}\",\n  \"query\": \"{{ $json.query }}\",\n  \"issue\": \"{{ $json.issue }}\",\n  \"recommendation\": \"{{ $json.recommendation }}\",\n  \"impressions\": {{ $json.impressions }},\n  \"position\": {{ $json.position }},\n  \"flaggedAt\": \"{{ $now.toISO() }}\"\n}",
+        "options": {}
+      },
+      "id": "flag-content",
+      "name": "Flag for Content Review",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1850, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LEADENGINE_API_URL }}/api/workflow/log",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.LEADENGINE_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"workflowId\": \"WF-SEO-06\",\n  \"workflowName\": \"CTR + Content Maintenance\",\n  \"status\": \"completed\",\n  \"opportunitiesFound\": {{ $input.all().length }},\n  \"metaUpdates\": {{ $json.metaUpdates || 0 }},\n  \"contentFlags\": {{ $json.contentFlags || 0 }},\n  \"executedAt\": \"{{ $now.toISO() }}\"\n}",
+        "options": {}
+      },
+      "id": "log-execution",
+      "name": "Log Execution",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2450, 200]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "message",
+              "value": "No CTR optimization opportunities found"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "no-opportunities",
+      "name": "No Opportunities",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1450, 400]
+    }
+  ],
+  "connections": {
+    "Weekly Schedule": {
+      "main": [
+        [
+          {
+            "node": "DRY_RUN Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DRY_RUN Check": {
+      "main": [
+        [
+          {
+            "node": "LAUNCH_MODE Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LAUNCH_MODE Check": {
+      "main": [
+        [
+          {
+            "node": "Fetch Search Console Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Search Console Data": {
+      "main": [
+        [
+          {
+            "node": "Analyze CTR Performance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze CTR Performance": {
+      "main": [
+        [
+          {
+            "node": "Has Opportunities?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Opportunities?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Meta Rewrite",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Opportunities",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Meta Rewrite": {
+      "main": [
+        [
+          {
+            "node": "Meta Rewrite Only?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Meta Rewrite Only?": {
+      "main": [
+        [
+          {
+            "node": "Generate New Meta",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Flag for Content Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate New Meta": {
+      "main": [
+        [
+          {
+            "node": "Log for Rollback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log for Rollback": {
+      "main": [
+        [
+          {
+            "node": "Update Page Meta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Page Meta": {
+      "main": [
+        [
+          {
+            "node": "Log Execution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Flag for Content Review": {
+      "main": [
+        [
+          {
+            "node": "Log Execution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["seo", "ctr", "maintenance", "optimization"],
+  "triggerCount": 0,
+  "updatedAt": "2025-12-15T00:00:00.000Z",
+  "versionId": "1"
+}

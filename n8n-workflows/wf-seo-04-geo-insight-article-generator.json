@@ -1,0 +1,443 @@
+{
+  "name": "WF-SEO-04: Geo Insight Article Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 2,
+              "triggerAtDay": 3,
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Bi-weekly Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $env.DRY_RUN }}",
+              "value2": "false"
+            }
+          ]
+        }
+      },
+      "id": "dry-run-check",
+      "name": "DRY_RUN Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $env.LAUNCH_MODE }}",
+              "value2": "LIVE"
+            }
+          ]
+        }
+      },
+      "id": "launch-mode-check",
+      "name": "LAUNCH_MODE Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.LEADENGINE_API_URL }}/api/seo/page-decisions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.LEADENGINE_API_KEY }}"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "pageType",
+              "value": "insight_article"
+            },
+            {
+              "name": "status",
+              "value": "queued_for_generation"
+            },
+            {
+              "name": "limit",
+              "value": "10"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-queued",
+      "name": "Fetch Queued Articles",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.data.length }}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "id": "check-queue",
+      "name": "Check Queue Not Empty",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const items = $input.item.json.data || [];\nreturn items.map(item => ({ json: item }));"
+      },
+      "id": "split-items",
+      "name": "Split Items",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Generate Geo Insight Article content using LLM\nconst item = $input.item.json;\nconst batchId = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;\n\n// Example article titles based on operator pain\nconst titleTemplates = [\n  `Why ${item.geo} ${item.vertical.toLowerCase()} operators struggle with lead quality`,\n  `What makes ${item.vertical.toLowerCase()} marketing harder in ${item.geo}`,\n  `Common ${item.vertical.toLowerCase()} marketing mistakes in ${item.geo}`,\n  `How ${item.geo} market dynamics affect ${item.vertical.toLowerCase()} growth`\n];\n\nconst selectedTitle = titleTemplates[Math.floor(Math.random() * titleTemplates.length)];\n\nconst prompt = `Write a professional insight article for ${item.vertical} operators in ${item.geo}.\n\nTITLE: ${selectedTitle}\n\nREQUIREMENTS:\n- This is an ARTICLE, NOT a sales page\n- Focus on operator pain points and challenges\n- Include geo-specific market dynamics\n- Provide actionable insights (not just problems)\n- NO city stuffing or fake local presence claims\n- NO AI labels or automation footprints\n- Educational, authoritative tone\n- 800-1200 words\n\nSTRUCTURE:\n1. Hook: Start with a relatable challenge\n2. Problem exploration: 2-3 specific pain points\n3. Market context: Why ${item.geo} is unique\n4. Insights: What successful operators do differently\n5. Subtle CTA: Link to geo hub or money page\n\nINTERNAL LINKING RULES:\n- Link UPWARD only: Article → Geo Hub → Money Page\n- Max 2 internal links\n- NO article-to-article chains\n\nOUTPUT FORMAT:\nReturn JSON with:\n- title: Article title\n- metaDescription: 155 character meta description\n- content: Full article content in markdown\n- internalLinks: Array of {anchor, url} objects (max 2)`;\n\nreturn {\n  json: {\n    ...item,\n    batchId,\n    llmPrompt: prompt,\n    suggestedTitle: selectedTitle,\n    generationType: 'insight_article'\n  }\n};"
+      },
+      "id": "prepare-prompt",
+      "name": "Prepare LLM Prompt",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LEADENGINE_API_URL }}/api/llm/generate",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.LEADENGINE_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"prompt\": {{ JSON.stringify($json.llmPrompt) }},\n  \"responseFormat\": \"json\",\n  \"maxTokens\": 3000\n}",
+        "options": {}
+      },
+      "id": "generate-content",
+      "name": "Generate Content (LLM)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1650, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Parse LLM response and build article data\nconst item = $input.item.json;\nconst llmResponse = item.llmResponse || {};\n\n// Build internal links (UPWARD only)\nconst geoHubSlug = `/${item.vertical.toLowerCase().replace(/\\s+/g, '-')}/${item.geo.toLowerCase().replace(/\\s+/g, '-')}`;\nconst internalLinks = [\n  { anchor: `${item.vertical} in ${item.geo}`, url: geoHubSlug }\n];\n\n// Generate slug from title\nconst titleSlug = (llmResponse.title || item.suggestedTitle)\n  .toLowerCase()\n  .replace(/[^a-z0-9]+/g, '-')\n  .replace(/^-|-$/g, '');\n\nreturn {\n  json: {\n    ...item,\n    articleData: {\n      title: llmResponse.title || item.suggestedTitle,\n      metaDescription: llmResponse.metaDescription || `Insights for ${item.vertical} operators in ${item.geo}. Learn what works and what doesn't.`,\n      content: llmResponse.content || '',\n      internalLinks: llmResponse.internalLinks || internalLinks,\n      slug: `/blog/${titleSlug}`,\n      category: item.vertical,\n      tags: [item.vertical, item.geo, 'insights', 'operator-pain'],\n      status: 'draft',\n      generatedAt: new Date().toISOString()\n    }\n  }\n};"
+      },
+      "id": "build-article-data",
+      "name": "Build Article Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1850, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LEADENGINE_API_URL }}/api/blog/posts",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.LEADENGINE_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.articleData) }}",
+        "options": {}
+      },
+      "id": "store-article",
+      "name": "Store Article (Draft)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2050, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LEADENGINE_API_URL }}/api/seo/rollback-history",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.LEADENGINE_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"batchId\": \"{{ $json.batchId }}\",\n  \"pageType\": \"insight_article\",\n  \"keyword\": \"{{ $json.keyword }}\",\n  \"geo\": \"{{ $json.geo }}\",\n  \"action\": \"create\",\n  \"articleData\": {{ JSON.stringify($json.articleData) }},\n  \"createdAt\": \"{{ $now.toISO() }}\"\n}",
+        "options": {}
+      },
+      "id": "log-rollback",
+      "name": "Log for Rollback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2250, 300]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.LEADENGINE_API_URL }}/api/seo/page-decisions/{{ $json.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.LEADENGINE_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"status\": \"generated_draft\" }",
+        "options": {}
+      },
+      "id": "update-status",
+      "name": "Update Decision Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2450, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LEADENGINE_API_URL }}/api/workflow/log",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.LEADENGINE_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"workflowId\": \"WF-SEO-04\",\n  \"workflowName\": \"Geo Insight Article Generator\",\n  \"status\": \"completed\",\n  \"batchId\": \"{{ $json.batchId }}\",\n  \"articlesGenerated\": 1,\n  \"title\": \"{{ $json.articleData.title }}\",\n  \"executedAt\": \"{{ $now.toISO() }}\"\n}",
+        "options": {}
+      },
+      "id": "log-execution",
+      "name": "Log Execution",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2650, 300]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "message",
+              "value": "No queued insight articles to generate"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "empty-queue",
+      "name": "Empty Queue",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1250, 500]
+    }
+  ],
+  "connections": {
+    "Bi-weekly Schedule": {
+      "main": [
+        [
+          {
+            "node": "DRY_RUN Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DRY_RUN Check": {
+      "main": [
+        [
+          {
+            "node": "LAUNCH_MODE Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LAUNCH_MODE Check": {
+      "main": [
+        [
+          {
+            "node": "Fetch Queued Articles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Queued Articles": {
+      "main": [
+        [
+          {
+            "node": "Check Queue Not Empty",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Queue Not Empty": {
+      "main": [
+        [
+          {
+            "node": "Split Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Empty Queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Items": {
+      "main": [
+        [
+          {
+            "node": "Prepare LLM Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare LLM Prompt": {
+      "main": [
+        [
+          {
+            "node": "Generate Content (LLM)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Content (LLM)": {
+      "main": [
+        [
+          {
+            "node": "Build Article Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Article Data": {
+      "main": [
+        [
+          {
+            "node": "Store Article (Draft)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Article (Draft)": {
+      "main": [
+        [
+          {
+            "node": "Log for Rollback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log for Rollback": {
+      "main": [
+        [
+          {
+            "node": "Update Decision Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Decision Status": {
+      "main": [
+        [
+          {
+            "node": "Log Execution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["seo", "insight-article", "content-generation"],
+  "triggerCount": 0,
+  "updatedAt": "2025-12-15T00:00:00.000Z",
+  "versionId": "1"
+}

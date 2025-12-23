@@ -1,0 +1,363 @@
+{
+  "name": "WF-SEO-05: Internal Linking Enforcer",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 5
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Daily Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $env.DRY_RUN }}",
+              "value2": "false"
+            }
+          ]
+        }
+      },
+      "id": "dry-run-check",
+      "name": "DRY_RUN Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $env.LAUNCH_MODE }}",
+              "value2": "LIVE"
+            }
+          ]
+        }
+      },
+      "id": "launch-mode-check",
+      "name": "LAUNCH_MODE Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.LEADENGINE_API_URL }}/api/seo/pages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.LEADENGINE_API_KEY }}"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "status",
+              "value": "published"
+            },
+            {
+              "name": "needsLinkAudit",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-pages",
+      "name": "Fetch Published Pages",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const pages = $input.item.json.data || [];\nreturn pages.map(page => ({ json: page }));"
+      },
+      "id": "split-pages",
+      "name": "Split Pages",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Analyze internal links and enforce hierarchy\nconst page = $input.item.json;\nconst pageType = page.pageType;\nconst currentLinks = page.internalLinks || [];\n\n// Link hierarchy rules\nconst linkRules = {\n  'insight_article': {\n    allowedTargets: ['geo_hub_landing_page'],\n    maxLinks: 2,\n    forbiddenPatterns: ['insight_article', 'city_page']\n  },\n  'geo_hub_landing_page': {\n    allowedTargets: ['core_money_landing_page', 'proof_page', 'pricing_page'],\n    maxLinks: 2,\n    forbiddenPatterns: ['insight_article', 'geo_hub_landing_page']\n  },\n  'comparison_pricing_page': {\n    allowedTargets: ['core_money_landing_page', 'pricing_page'],\n    maxLinks: 2,\n    forbiddenPatterns: ['comparison_pricing_page']\n  }\n};\n\nconst rules = linkRules[pageType] || { allowedTargets: [], maxLinks: 2, forbiddenPatterns: [] };\n\n// Audit current links\nconst violations = [];\nconst validLinks = [];\nconst suggestedLinks = [];\n\nfor (const link of currentLinks) {\n  // Check for forbidden patterns\n  const isForbidden = rules.forbiddenPatterns.some(pattern => \n    link.url.includes(pattern.replace(/_/g, '-'))\n  );\n  \n  if (isForbidden) {\n    violations.push({\n      type: 'forbidden_link',\n      link,\n      reason: `Link to ${link.url} violates hierarchy rules`\n    });\n  } else {\n    validLinks.push(link);\n  }\n}\n\n// Check max links\nif (validLinks.length > rules.maxLinks) {\n  violations.push({\n    type: 'too_many_links',\n    count: validLinks.length,\n    max: rules.maxLinks,\n    reason: `Page has ${validLinks.length} links, max is ${rules.maxLinks}`\n  });\n}\n\n// Suggest upward links if missing\nif (validLinks.length < rules.maxLinks && rules.allowedTargets.length > 0) {\n  suggestedLinks.push({\n    targetType: rules.allowedTargets[0],\n    reason: 'Missing upward link in hierarchy'\n  });\n}\n\nreturn {\n  json: {\n    pageId: page.id,\n    pageType,\n    slug: page.slug,\n    currentLinks,\n    validLinks,\n    violations,\n    suggestedLinks,\n    needsUpdate: violations.length > 0 || suggestedLinks.length > 0\n  }\n};"
+      },
+      "id": "analyze-links",
+      "name": "Analyze Links",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.needsUpdate }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-needs-update",
+      "name": "Needs Update?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Generate corrected links based on hierarchy\nconst item = $input.item.json;\nconst batchId = `link_batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;\n\n// Remove violating links, keep valid ones up to max\nlet correctedLinks = item.validLinks.slice(0, 2);\n\n// Add suggested upward links\nfor (const suggestion of item.suggestedLinks) {\n  if (correctedLinks.length < 2) {\n    // Generate appropriate link based on target type\n    let newLink;\n    switch (suggestion.targetType) {\n      case 'geo_hub_landing_page':\n        newLink = { anchor: 'Learn more about our services', url: '/solutions' };\n        break;\n      case 'core_money_landing_page':\n        newLink = { anchor: 'See our full service offering', url: '/solutions' };\n        break;\n      case 'proof_page':\n        newLink = { anchor: 'View our results', url: '/proof' };\n        break;\n      case 'pricing_page':\n        newLink = { anchor: 'See pricing', url: '/pricing' };\n        break;\n      default:\n        newLink = null;\n    }\n    if (newLink) correctedLinks.push(newLink);\n  }\n}\n\n// Rotate anchor text naturally\nconst anchorVariants = [\n  ['Learn more', 'Discover how', 'See details'],\n  ['View results', 'Check our proof', 'See the data'],\n  ['Get pricing', 'See plans', 'View options']\n];\n\nreturn {\n  json: {\n    ...item,\n    batchId,\n    correctedLinks,\n    diff: {\n      removed: item.violations.filter(v => v.type === 'forbidden_link').map(v => v.link),\n      added: correctedLinks.filter(l => !item.validLinks.includes(l)),\n      kept: item.validLinks.filter(l => correctedLinks.includes(l))\n    }\n  }\n};"
+      },
+      "id": "generate-corrections",
+      "name": "Generate Corrections",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1650, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LEADENGINE_API_URL }}/api/seo/rollback-history",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.LEADENGINE_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"batchId\": \"{{ $json.batchId }}\",\n  \"pageId\": \"{{ $json.pageId }}\",\n  \"action\": \"link_update\",\n  \"previousLinks\": {{ JSON.stringify($json.currentLinks) }},\n  \"newLinks\": {{ JSON.stringify($json.correctedLinks) }},\n  \"diff\": {{ JSON.stringify($json.diff) }},\n  \"createdAt\": \"{{ $now.toISO() }}\"\n}",
+        "options": {}
+      },
+      "id": "log-diff",
+      "name": "Log Diff for Rollback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1850, 200]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.LEADENGINE_API_URL }}/api/seo/pages/{{ $json.pageId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.LEADENGINE_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"internalLinks\": {{ JSON.stringify($json.correctedLinks) }},\n  \"lastLinkAudit\": \"{{ $now.toISO() }}\"\n}",
+        "options": {}
+      },
+      "id": "update-page",
+      "name": "Update Page Links",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2050, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LEADENGINE_API_URL }}/api/workflow/log",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.LEADENGINE_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"workflowId\": \"WF-SEO-05\",\n  \"workflowName\": \"Internal Linking Enforcer\",\n  \"status\": \"completed\",\n  \"batchId\": \"{{ $json.batchId }}\",\n  \"pageId\": \"{{ $json.pageId }}\",\n  \"violationsFixed\": {{ $json.violations.length }},\n  \"linksUpdated\": true,\n  \"executedAt\": \"{{ $now.toISO() }}\"\n}",
+        "options": {}
+      },
+      "id": "log-execution",
+      "name": "Log Execution",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2250, 200]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "status",
+              "value": "no_update_needed"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "no-update",
+      "name": "No Update Needed",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1650, 400]
+    }
+  ],
+  "connections": {
+    "Daily Schedule": {
+      "main": [
+        [
+          {
+            "node": "DRY_RUN Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DRY_RUN Check": {
+      "main": [
+        [
+          {
+            "node": "LAUNCH_MODE Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LAUNCH_MODE Check": {
+      "main": [
+        [
+          {
+            "node": "Fetch Published Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Published Pages": {
+      "main": [
+        [
+          {
+            "node": "Split Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Pages": {
+      "main": [
+        [
+          {
+            "node": "Analyze Links",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Links": {
+      "main": [
+        [
+          {
+            "node": "Needs Update?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Update?": {
+      "main": [
+        [
+          {
+            "node": "Generate Corrections",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Update Needed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Corrections": {
+      "main": [
+        [
+          {
+            "node": "Log Diff for Rollback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Diff for Rollback": {
+      "main": [
+        [
+          {
+            "node": "Update Page Links",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Page Links": {
+      "main": [
+        [
+          {
+            "node": "Log Execution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["seo", "internal-linking", "maintenance"],
+  "triggerCount": 0,
+  "updatedAt": "2025-12-15T00:00:00.000Z",
+  "versionId": "1"
+}

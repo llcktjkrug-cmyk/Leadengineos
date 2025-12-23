@@ -1,0 +1,375 @@
+{
+  "name": "WF-SEO-01: Keyword + Intent Scanner",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 1,
+              "triggerAtDay": 1,
+              "triggerAtHour": 6
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Weekly Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $env.DRY_RUN }}",
+              "value2": "false"
+            }
+          ]
+        }
+      },
+      "id": "dry-run-check",
+      "name": "DRY_RUN Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $env.LAUNCH_MODE }}",
+              "value2": "LIVE"
+            }
+          ]
+        }
+      },
+      "id": "launch-mode-check",
+      "name": "LAUNCH_MODE Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Load configuration\nconst config = {\n  verticals: [\n    {\n      name: 'Med Spa',\n      seedKeywords: [\n        'med spa lead generation',\n        'medical spa marketing service',\n        'med spa marketing agency',\n        'medspa leads',\n        'medical spa advertising'\n      ]\n    },\n    {\n      name: 'Dental Implants',\n      seedKeywords: [\n        'dental implant marketing',\n        'dental implant leads',\n        'implant dentist marketing agency',\n        'dental implant advertising'\n      ]\n    },\n    {\n      name: 'Multi-location Local SEO',\n      seedKeywords: [\n        'local seo for multi location business',\n        'multi location seo service',\n        'franchise seo agency'\n      ]\n    }\n  ],\n  geoScope: ['national', 'California', 'Texas', 'Florida', 'New York']\n};\n\n// Flatten keywords with geo combinations\nconst keywordGeoList = [];\nfor (const vertical of config.verticals) {\n  for (const keyword of vertical.seedKeywords) {\n    for (const geo of config.geoScope) {\n      keywordGeoList.push({\n        keyword,\n        vertical: vertical.name,\n        geo,\n        searchQuery: geo === 'national' ? keyword : `${keyword} ${geo}`\n      });\n    }\n  }\n}\n\nreturn keywordGeoList.map(item => ({ json: item }));"
+      },
+      "id": "prepare-keywords",
+      "name": "Prepare Keyword List",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "batchSize": 10,
+        "options": {}
+      },
+      "id": "batch-keywords",
+      "name": "Batch Keywords",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 2,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.KEYWORD_API_URL }}/v3/keywords_data/google/search_volume/live",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "keywords",
+              "value": "={{ $json.searchQuery }}"
+            },
+            {
+              "name": "location_name",
+              "value": "United States"
+            },
+            {
+              "name": "language_name",
+              "value": "English"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "keyword-api-call",
+      "name": "Keyword Intelligence API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1250, 300],
+      "notes": "Replace with your keyword API provider (DataForSEO, SEMrush, etc.)"
+    },
+    {
+      "parameters": {
+        "functionCode": "// Parse API response and calculate opportunity score\nconst item = $input.item.json;\nconst apiResponse = $input.item.json.apiResponse || {};\n\n// Extract metrics (adjust based on your API provider)\nconst volume = apiResponse.search_volume || 0;\nconst cpc = apiResponse.cpc || 0;\nconst competition = apiResponse.competition || 0.5;\nconst serpType = apiResponse.serp_type || 'mixed';\n\n// Normalize values (0-100 scale)\nconst normalizedVolume = Math.min(100, (volume / 10000) * 100);\nconst cpcWeight = Math.min(100, (cpc / 50) * 100);\nconst lowCompetitionBonus = (1 - competition) * 100;\nconst agencySerpBonus = serpType === 'agency-heavy' ? 100 : (serpType === 'mixed' ? 50 : 0);\n\n// Calculate opportunity score\nconst opportunityScore = Math.round(\n  (normalizedVolume * 0.35) +\n  (cpcWeight * 0.30) +\n  (lowCompetitionBonus * 0.25) +\n  (agencySerpBonus * 0.10)\n);\n\n// Determine status\nlet status;\nif (opportunityScore >= 75) status = 'approved';\nelse if (opportunityScore >= 60) status = 'monitor';\nelse status = 'ignore';\n\n// Classify intent tier\nconst keyword = item.keyword.toLowerCase();\nlet intentTier;\nif (['service', 'agency', 'company', 'marketing', 'leads'].some(t => keyword.includes(t))) {\n  intentTier = 'A';\n} else if (['best', 'cost', 'pricing', 'compare'].some(t => keyword.includes(t))) {\n  intentTier = 'B';\n} else if (['why', 'problems', 'not converting'].some(t => keyword.includes(t))) {\n  intentTier = 'C';\n} else {\n  intentTier = 'D';\n}\n\n// Determine recommended page type\nlet recommendedPageType;\nif (intentTier === 'A' && item.geo === 'national') {\n  recommendedPageType = 'core_money_landing_page';\n} else if (intentTier === 'A') {\n  recommendedPageType = 'geo_hub_landing_page';\n} else if (intentTier === 'B') {\n  recommendedPageType = 'comparison_pricing_page';\n} else if (intentTier === 'C') {\n  recommendedPageType = 'insight_article';\n} else {\n  recommendedPageType = 'skip';\n}\n\nreturn {\n  json: {\n    keyword: item.keyword,\n    geo: item.geo,\n    vertical: item.vertical,\n    volume,\n    cpc,\n    competitionScore: competition,\n    serpType,\n    intentTier,\n    opportunityScore,\n    recommendedPageType,\n    status,\n    scannedAt: new Date().toISOString()\n  }\n};"
+      },
+      "id": "calculate-score",
+      "name": "Calculate Opportunity Score",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LEADENGINE_API_URL }}/api/seo/keywords",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.LEADENGINE_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "store-results",
+      "name": "Store Results",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1650, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.status }}",
+              "value2": "approved"
+            }
+          ]
+        }
+      },
+      "id": "filter-approved",
+      "name": "Filter Approved",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1850, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LEADENGINE_API_URL }}/api/workflow/log",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.LEADENGINE_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"workflowId\": \"WF-SEO-01\",\n  \"workflowName\": \"Keyword + Intent Scanner\",\n  \"status\": \"completed\",\n  \"approvedCount\": {{ $json.approvedCount }},\n  \"monitorCount\": {{ $json.monitorCount }},\n  \"ignoredCount\": {{ $json.ignoredCount }},\n  \"executedAt\": \"{{ $now.toISO() }}\"\n}",
+        "options": {}
+      },
+      "id": "log-execution",
+      "name": "Log Execution",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2050, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Trigger Page Type Decision Engine for approved keywords\nconst approvedKeywords = $input.all().filter(item => item.json.status === 'approved');\n\nreturn approvedKeywords.map(item => ({\n  json: {\n    ...item.json,\n    triggerPageTypeEngine: true\n  }\n}));"
+      },
+      "id": "trigger-page-type",
+      "name": "Trigger Page Type Engine",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [2050, 500]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "message",
+              "value": "DRY_RUN mode active - no changes made"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "dry-run-log",
+      "name": "DRY_RUN Log",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [650, 500]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "message",
+              "value": "LAUNCH_MODE not LIVE - workflow blocked"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "launch-mode-blocked",
+      "name": "LAUNCH_MODE Blocked",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [850, 500]
+    }
+  ],
+  "connections": {
+    "Weekly Schedule": {
+      "main": [
+        [
+          {
+            "node": "DRY_RUN Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DRY_RUN Check": {
+      "main": [
+        [
+          {
+            "node": "LAUNCH_MODE Check",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "DRY_RUN Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LAUNCH_MODE Check": {
+      "main": [
+        [
+          {
+            "node": "Prepare Keyword List",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "LAUNCH_MODE Blocked",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Keyword List": {
+      "main": [
+        [
+          {
+            "node": "Batch Keywords",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Batch Keywords": {
+      "main": [
+        [
+          {
+            "node": "Keyword Intelligence API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keyword Intelligence API": {
+      "main": [
+        [
+          {
+            "node": "Calculate Opportunity Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Opportunity Score": {
+      "main": [
+        [
+          {
+            "node": "Store Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Results": {
+      "main": [
+        [
+          {
+            "node": "Filter Approved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Approved": {
+      "main": [
+        [
+          {
+            "node": "Trigger Page Type Engine",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Execution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["seo", "keywords", "opportunity-engine"],
+  "triggerCount": 0,
+  "updatedAt": "2025-12-15T00:00:00.000Z",
+  "versionId": "1"
+}

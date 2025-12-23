@@ -1,0 +1,90 @@
+import "dotenv/config";
+import express from "express";
+import { createServer } from "http";
+import net from "net";
+import { createExpressMiddleware } from "@trpc/server/adapters/express";
+import { registerOAuthRoutes } from "./oauth";
+import { appRouter } from "../routers";
+import { sitemapRouter } from "../sitemap";
+import { adminApiRouter } from "../adminApi";
+import { createContext } from "./context";
+import { serveStatic, setupVite } from "./vite";
+import { applySecurityMiddleware, validateAdminApiKey, adminApiRateLimiter } from "../security";
+import { ENV } from "./env";
+
+function isPortAvailable(port: number): Promise<boolean> {
+  return new Promise(resolve => {
+    const server = net.createServer();
+    server.listen(port, () => {
+      server.close(() => resolve(true));
+    });
+    server.on("error", () => resolve(false));
+  });
+}
+
+async function findAvailablePort(startPort: number = 3000): Promise<number> {
+  for (let port = startPort; port < startPort + 20; port++) {
+    if (await isPortAvailable(port)) {
+      return port;
+    }
+  }
+  throw new Error(`No available port found starting from ${startPort}`);
+}
+
+async function startServer() {
+  const app = express();
+  const server = createServer(app);
+  
+  // Apply security middleware first
+  applySecurityMiddleware(app);
+  
+  // Add X-Robots-Tag header for staging environment to prevent indexing
+  if (ENV.isStaging) {
+    app.use((req, res, next) => {
+      res.setHeader("X-Robots-Tag", "noindex, nofollow");
+      next();
+    });
+    console.log(`Staging mode: X-Robots-Tag noindex header enabled`);
+  }
+  
+  // Configure body parser with larger size limit for file uploads
+  app.use(express.json({ limit: "50mb" }));
+  app.use(express.urlencoded({ limit: "50mb", extended: true }));
+  
+  // Admin API with API key authentication
+  app.use("/api/admin", validateAdminApiKey, adminApiRateLimiter, adminApiRouter);
+  
+  // OAuth callback under /api/oauth/callback
+  registerOAuthRoutes(app);
+  // Sitemap and robots.txt
+  app.use(sitemapRouter);
+  // tRPC API
+  app.use(
+    "/api/trpc",
+    createExpressMiddleware({
+      router: appRouter,
+      createContext,
+    })
+  );
+  // development mode uses Vite, production mode uses static files
+  if (process.env.NODE_ENV === "development") {
+    await setupVite(app, server);
+  } else {
+    serveStatic(app);
+  }
+
+  console.log(`Security middleware applied: Helmet, CORS, Rate Limiting`);
+  
+  const preferredPort = parseInt(process.env.PORT || "3000");
+  const port = await findAvailablePort(preferredPort);
+
+  if (port !== preferredPort) {
+    console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
+  }
+
+  server.listen(port, () => {
+    console.log(`Server running on http://localhost:${port}/`);
+  });
+}
+
+startServer().catch(console.error);

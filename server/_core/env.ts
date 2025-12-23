@@ -1,0 +1,15 @@
+export const ENV = {
+  appId: process.env.VITE_APP_ID ?? "",
+  cookieSecret: process.env.JWT_SECRET ?? "",
+  databaseUrl: process.env.DATABASE_URL ?? "",
+  oAuthServerUrl: process.env.OAUTH_SERVER_URL ?? "",
+  ownerOpenId: process.env.OWNER_OPEN_ID ?? "",
+  isProduction: process.env.NODE_ENV === "production",
+  // Environment: 'staging' or 'production' - controls indexing behavior
+  environment: (process.env.VITE_ENVIRONMENT ?? "staging") as "staging" | "production",
+  isStaging: (process.env.VITE_ENVIRONMENT ?? "staging") === "staging",
+  forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
+  forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
+  analyticsEndpoint: process.env.VITE_ANALYTICS_ENDPOINT ?? "",
+  analyticsWebsiteId: process.env.VITE_ANALYTICS_WEBSITE_ID ?? "",
+};

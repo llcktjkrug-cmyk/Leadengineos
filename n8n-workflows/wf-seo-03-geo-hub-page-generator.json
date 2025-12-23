@@ -1,0 +1,443 @@
+{
+  "name": "WF-SEO-03: Geo Hub Page Generator",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "months",
+              "monthsInterval": 1,
+              "triggerAtDayOfMonth": 1,
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Monthly Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $env.DRY_RUN }}",
+              "value2": "false"
+            }
+          ]
+        }
+      },
+      "id": "dry-run-check",
+      "name": "DRY_RUN Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $env.LAUNCH_MODE }}",
+              "value2": "LIVE"
+            }
+          ]
+        }
+      },
+      "id": "launch-mode-check",
+      "name": "LAUNCH_MODE Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.LEADENGINE_API_URL }}/api/seo/page-decisions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.LEADENGINE_API_KEY }}"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "pageType",
+              "value": "geo_hub_landing_page"
+            },
+            {
+              "name": "status",
+              "value": "queued_for_generation"
+            },
+            {
+              "name": "limit",
+              "value": "5"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-queued",
+      "name": "Fetch Queued Geo Hubs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.data.length }}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "id": "check-queue",
+      "name": "Check Queue Not Empty",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Extract queued items and prepare for generation\nconst items = $input.item.json.data || [];\nreturn items.map(item => ({ json: item }));"
+      },
+      "id": "split-items",
+      "name": "Split Items",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Generate Geo Hub page content using LLM\nconst item = $input.item.json;\nconst batchId = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;\n\n// Construct prompt for geo hub page\nconst prompt = `Create a professional geo hub landing page for ${item.vertical} marketing in ${item.geo}.\n\nREQUIREMENTS:\n- Focus on market dynamics specific to ${item.geo}\n- Include buyer behavior insights for this region\n- Mention any regulatory or competitive quirks\n- Include a clear CTA to request an audit\n- NO city stuffing or fake local presence claims\n- NO AI labels or automation footprints\n- Professional, authoritative tone\n\nSTRUCTURE:\n1. H1: ${item.keyword} headline optimized for ${item.geo}\n2. Hero section with value proposition\n3. Market dynamics section (2-3 paragraphs)\n4. Why operators in ${item.geo} choose us\n5. CTA section with audit request\n\nOUTPUT FORMAT:\nReturn JSON with:\n- title: SEO-optimized page title\n- metaDescription: 155 character meta description\n- h1: Main heading\n- heroText: Hero section copy\n- sections: Array of content sections\n- cta: Call to action text`;\n\nreturn {\n  json: {\n    ...item,\n    batchId,\n    llmPrompt: prompt,\n    generationType: 'geo_hub'\n  }\n};"
+      },
+      "id": "prepare-prompt",
+      "name": "Prepare LLM Prompt",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LEADENGINE_API_URL }}/api/llm/generate",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.LEADENGINE_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"prompt\": {{ JSON.stringify($json.llmPrompt) }},\n  \"responseFormat\": \"json\",\n  \"maxTokens\": 2000\n}",
+        "options": {}
+      },
+      "id": "generate-content",
+      "name": "Generate Content (LLM)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1650, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Parse LLM response and prepare page data\nconst item = $input.item.json;\nconst llmResponse = item.llmResponse || {};\n\n// Build internal links according to hierarchy\nconst internalLinks = [\n  { anchor: `${item.vertical} Services`, url: '/solutions/' + item.vertical.toLowerCase().replace(/\\s+/g, '-') },\n  { anchor: 'See Our Results', url: '/proof' },\n  { anchor: 'View Pricing', url: '/pricing' }\n];\n\nreturn {\n  json: {\n    ...item,\n    pageData: {\n      title: llmResponse.title || `${item.keyword} | ${item.geo}`,\n      metaDescription: llmResponse.metaDescription || `Professional ${item.vertical} marketing services in ${item.geo}. Get more leads with proven strategies.`,\n      h1: llmResponse.h1 || item.keyword,\n      content: llmResponse,\n      internalLinks,\n      slug: `/${item.vertical.toLowerCase().replace(/\\s+/g, '-')}/${item.geo.toLowerCase().replace(/\\s+/g, '-')}`,\n      status: 'draft',\n      generatedAt: new Date().toISOString()\n    }\n  }\n};"
+      },
+      "id": "build-page-data",
+      "name": "Build Page Data",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1850, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LEADENGINE_API_URL }}/api/seo/pages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.LEADENGINE_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.pageData) }}",
+        "options": {}
+      },
+      "id": "store-page",
+      "name": "Store Page (Draft)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2050, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LEADENGINE_API_URL }}/api/seo/rollback-history",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.LEADENGINE_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"batchId\": \"{{ $json.batchId }}\",\n  \"pageType\": \"geo_hub\",\n  \"keyword\": \"{{ $json.keyword }}\",\n  \"geo\": \"{{ $json.geo }}\",\n  \"action\": \"create\",\n  \"pageData\": {{ JSON.stringify($json.pageData) }},\n  \"createdAt\": \"{{ $now.toISO() }}\"\n}",
+        "options": {}
+      },
+      "id": "log-rollback",
+      "name": "Log for Rollback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2250, 300]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env.LEADENGINE_API_URL }}/api/seo/page-decisions/{{ $json.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.LEADENGINE_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"status\": \"generated_draft\" }",
+        "options": {}
+      },
+      "id": "update-status",
+      "name": "Update Decision Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2450, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LEADENGINE_API_URL }}/api/workflow/log",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.LEADENGINE_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"workflowId\": \"WF-SEO-03\",\n  \"workflowName\": \"Geo Hub Page Generator\",\n  \"status\": \"completed\",\n  \"batchId\": \"{{ $json.batchId }}\",\n  \"pagesGenerated\": 1,\n  \"keyword\": \"{{ $json.keyword }}\",\n  \"geo\": \"{{ $json.geo }}\",\n  \"executedAt\": \"{{ $now.toISO() }}\"\n}",
+        "options": {}
+      },
+      "id": "log-execution",
+      "name": "Log Execution",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2650, 300]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "message",
+              "value": "No queued geo hub pages to generate"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "empty-queue",
+      "name": "Empty Queue",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1250, 500]
+    }
+  ],
+  "connections": {
+    "Monthly Schedule": {
+      "main": [
+        [
+          {
+            "node": "DRY_RUN Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DRY_RUN Check": {
+      "main": [
+        [
+          {
+            "node": "LAUNCH_MODE Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LAUNCH_MODE Check": {
+      "main": [
+        [
+          {
+            "node": "Fetch Queued Geo Hubs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Queued Geo Hubs": {
+      "main": [
+        [
+          {
+            "node": "Check Queue Not Empty",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Queue Not Empty": {
+      "main": [
+        [
+          {
+            "node": "Split Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Empty Queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Items": {
+      "main": [
+        [
+          {
+            "node": "Prepare LLM Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare LLM Prompt": {
+      "main": [
+        [
+          {
+            "node": "Generate Content (LLM)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Content (LLM)": {
+      "main": [
+        [
+          {
+            "node": "Build Page Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Page Data": {
+      "main": [
+        [
+          {
+            "node": "Store Page (Draft)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Page (Draft)": {
+      "main": [
+        [
+          {
+            "node": "Log for Rollback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log for Rollback": {
+      "main": [
+        [
+          {
+            "node": "Update Decision Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Decision Status": {
+      "main": [
+        [
+          {
+            "node": "Log Execution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["seo", "geo-hub", "content-generation"],
+  "triggerCount": 0,
+  "updatedAt": "2025-12-15T00:00:00.000Z",
+  "versionId": "1"
+}

@@ -1,0 +1,69 @@
+flowchart TB
+    subgraph Discovery["🔍 Discovery Layer"]
+        KW[WF-SEO-01<br/>Keyword Scanner<br/>Weekly]
+        API[DataForSEO API]
+        KW -->|Fetch Keywords| API
+        API -->|Return Metrics| KW
+    end
+
+    subgraph Scoring["📊 Scoring & Approval"]
+        SCORE[Score Keywords<br/>Volume × 0.3<br/>Intent × 0.4<br/>Competition × 0.2<br/>Geo × 0.1]
+        QUEUE[Opportunity Queue<br/>Human Approval]
+        KW --> SCORE
+        SCORE -->|Score > 70| QUEUE
+    end
+
+    subgraph Decision["🎯 Decision Engine"]
+        WF02[WF-SEO-02<br/>Page Type Decision]
+        QUEUE -->|Approved| WF02
+        
+        WF02 -->|Tier A + National| MONEY[Core Money Page]
+        WF02 -->|Tier A + State/Metro| GEO[Geo Hub Page]
+        WF02 -->|Tier B| COMPARE[Comparison Page]
+        WF02 -->|Tier C| ARTICLE[Insight Article]
+        WF02 -->|Tier D| SKIP[Skip]
+    end
+
+    subgraph Generation["✍️ Content Generation"]
+        WF03[WF-SEO-03<br/>Geo Hub Generator<br/>Monthly]
+        WF04[WF-SEO-04<br/>Article Generator<br/>Bi-weekly]
+        
+        GEO --> WF03
+        MONEY --> WF03
+        COMPARE --> WF03
+        ARTICLE --> WF04
+        
+        WF03 -->|Draft| PAGES[(Pages DB)]
+        WF04 -->|Draft| PAGES
+    end
+
+    subgraph Maintenance["🔧 Maintenance Layer"]
+        WF05[WF-SEO-05<br/>Internal Linking<br/>Daily]
+        WF06[WF-SEO-06<br/>CTR Maintenance<br/>Weekly]
+        
+        PAGES --> WF05
+        WF05 -->|Fix Links| PAGES
+        
+        GSC[Google Search Console]
+        GSC -->|CTR Data| WF06
+        WF06 -->|Update Meta| PAGES
+        WF06 -->|Flag Content| REVIEW[Content Review Queue]
+    end
+
+    subgraph Safety["🛡️ Safety Controls"]
+        DRY[DRY_RUN Check]
+        LAUNCH[LAUNCH_MODE Gate]
+        ROLLBACK[(Rollback History)]
+        
+        WF03 -.->|Log| ROLLBACK
+        WF04 -.->|Log| ROLLBACK
+        WF05 -.->|Log| ROLLBACK
+        WF06 -.->|Log| ROLLBACK
+    end
+
+    style Discovery fill:#e3f2fd
+    style Scoring fill:#fff3e0
+    style Decision fill:#f3e5f5
+    style Generation fill:#e8f5e9
+    style Maintenance fill:#fce4ec
+    style Safety fill:#f5f5f5

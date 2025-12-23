@@ -1,0 +1,677 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+/* =============================================================================
+   DESIGN TOKENS - Calm, Professional Palette (Stripe/Linear inspired)
+   ============================================================================= */
+
+:root {
+  /* Primary: Muted Indigo - trustworthy, professional */
+  --primary: oklch(0.45 0.16 270);
+  --primary-foreground: oklch(0.98 0 0);
+  --sidebar-primary: oklch(0.45 0.16 270);
+  --sidebar-primary-foreground: oklch(0.98 0 0);
+
+  /* Accent: Teal - used sparingly for links, focus states, small highlights */
+  --accent: oklch(0.55 0.14 195);
+  --accent-foreground: oklch(0.98 0 0);
+
+  /* Chart colors - professional, muted */
+  --chart-1: oklch(0.55 0.14 195);
+  --chart-2: oklch(0.50 0.14 270);
+  --chart-3: oklch(0.55 0.12 250);
+  --chart-4: oklch(0.60 0.10 230);
+  --chart-5: oklch(0.45 0.12 210);
+
+  --radius: 0.5rem;
+
+  /* Semantic status colors - clear and legible */
+  --status-gray: oklch(0.60 0.01 250);
+  --status-gray-foreground: oklch(0.25 0.01 250);
+  --status-gray-bg: oklch(0.95 0.005 250);
+
+  --status-blue: oklch(0.55 0.15 250);
+  --status-blue-foreground: oklch(0.30 0.08 250);
+  --status-blue-bg: oklch(0.95 0.02 250);
+
+  --status-amber: oklch(0.75 0.14 75);
+  --status-amber-foreground: oklch(0.35 0.08 75);
+  --status-amber-bg: oklch(0.96 0.03 75);
+
+  --status-indigo: oklch(0.50 0.16 270);
+  --status-indigo-foreground: oklch(0.30 0.10 270);
+  --status-indigo-bg: oklch(0.95 0.02 270);
+
+  --status-green: oklch(0.55 0.15 155);
+  --status-green-foreground: oklch(0.25 0.08 155);
+  --status-green-bg: oklch(0.95 0.02 155);
+
+  --status-red: oklch(0.55 0.18 25);
+  --status-red-foreground: oklch(0.30 0.10 25);
+  --status-red-bg: oklch(0.96 0.02 25);
+
+  /* Surface colors */
+  --background: oklch(0.995 0.002 270);
+  --foreground: oklch(0.15 0.02 270);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.15 0.02 270);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.15 0.02 270);
+  --secondary: oklch(0.96 0.005 270);
+  --secondary-foreground: oklch(0.30 0.02 270);
+  --muted: oklch(0.97 0.003 270);
+  --muted-foreground: oklch(0.45 0.02 270);
+  --destructive: oklch(0.55 0.20 25);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.92 0.005 270);
+  --input: oklch(0.92 0.005 270);
+  --ring: oklch(0.45 0.16 270);
+
+  /* Sidebar */
+  --sidebar: oklch(0.985 0.003 270);
+  --sidebar-foreground: oklch(0.15 0.02 270);
+  --sidebar-accent: oklch(0.96 0.005 270);
+  --sidebar-accent-foreground: oklch(0.30 0.02 270);
+  --sidebar-border: oklch(0.92 0.005 270);
+  --sidebar-ring: oklch(0.45 0.16 270);
+
+  /* Subtle shadow for cards */
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.04);
+  --shadow-md: 0 2px 8px oklch(0 0 0 / 0.06), 0 1px 2px oklch(0 0 0 / 0.04);
+  --shadow-lg: 0 4px 16px oklch(0 0 0 / 0.08), 0 2px 4px oklch(0 0 0 / 0.04);
+}
+
+.dark {
+  --primary: oklch(0.65 0.14 270);
+  --primary-foreground: oklch(0.10 0 0);
+  --sidebar-primary: oklch(0.65 0.14 270);
+  --sidebar-primary-foreground: oklch(0.10 0 0);
+  --accent: oklch(0.65 0.12 195);
+  --accent-foreground: oklch(0.10 0 0);
+  --background: oklch(0.13 0.005 270);
+  --foreground: oklch(0.92 0.005 270);
+  --card: oklch(0.17 0.006 270);
+  --card-foreground: oklch(0.92 0.005 270);
+  --popover: oklch(0.17 0.006 270);
+  --popover-foreground: oklch(0.92 0.005 270);
+  --secondary: oklch(0.22 0.006 270);
+  --secondary-foreground: oklch(0.80 0.005 270);
+  --muted: oklch(0.25 0.006 270);
+  --muted-foreground: oklch(0.65 0.01 270);
+  --destructive: oklch(0.60 0.18 25);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.25 0.005 270);
+  --input: oklch(0.25 0.005 270);
+  --ring: oklch(0.65 0.14 270);
+  --chart-1: oklch(0.65 0.12 195);
+  --chart-2: oklch(0.60 0.12 270);
+  --chart-3: oklch(0.65 0.10 250);
+  --chart-4: oklch(0.70 0.08 230);
+  --chart-5: oklch(0.55 0.10 210);
+  --sidebar: oklch(0.17 0.006 270);
+  --sidebar-foreground: oklch(0.92 0.005 270);
+  --sidebar-accent: oklch(0.25 0.006 270);
+  --sidebar-accent-foreground: oklch(0.98 0 0);
+  --sidebar-border: oklch(0.25 0.005 270);
+  --sidebar-ring: oklch(0.65 0.14 270);
+}
+
+/* =============================================================================
+   BASE STYLES
+   ============================================================================= */
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [type="button"]:not(:disabled),
+  [type="submit"]:not(:disabled),
+  [type="reset"]:not(:disabled),
+  a[href],
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled) {
+    @apply cursor-pointer;
+  }
+
+  /* Default typography - restrained for app use */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+
+  h1 {
+    @apply text-2xl md:text-3xl;
+  }
+
+  h2 {
+    @apply text-xl md:text-2xl;
+  }
+
+  h3 {
+    @apply text-lg md:text-xl;
+  }
+
+  h4 {
+    @apply text-base md:text-lg;
+  }
+}
+
+/* =============================================================================
+   COMPONENT STYLES
+   ============================================================================= */
+
+@layer components {
+  .container {
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .flex {
+    min-height: 0;
+    min-width: 0;
+  }
+
+  @media (min-width: 640px) {
+    .container {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .container {
+      padding-left: 2rem;
+      padding-right: 2rem;
+      max-width: 1280px;
+    }
+  }
+}
+
+/* =============================================================================
+   MARKETING PAGE TYPOGRAPHY (data-surface="marketing")
+   Large, expressive headings only on marketing pages
+   ============================================================================= */
+
+@utility marketing-hero-title {
+  font-size: 2.5rem;
+  line-height: 1.1;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  @media (min-width: 768px) {
+    font-size: 3.5rem;
+  }
+  @media (min-width: 1024px) {
+    font-size: 4.5rem;
+  }
+}
+
+@utility marketing-hero-subtitle {
+  font-size: 1.125rem;
+  line-height: 1.6;
+  color: var(--muted-foreground);
+  @media (min-width: 768px) {
+    font-size: 1.25rem;
+  }
+}
+
+@utility marketing-section-title {
+  font-size: 1.875rem;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  @media (min-width: 768px) {
+    font-size: 2.25rem;
+  }
+}
+
+/* =============================================================================
+   CARD STYLES - Simple, clean, no heavy effects
+   ============================================================================= */
+
+@utility card-elevated {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border);
+}
+
+@utility card-flat {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+}
+
+@utility card-subtle {
+  background: var(--secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid transparent;
+}
+
+/* Hover state for interactive cards - subtle lift */
+@utility card-interactive {
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  &:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-1px);
+  }
+}
+
+/* =============================================================================
+   BUTTON ENHANCEMENTS - Subtle, professional
+   ============================================================================= */
+
+@utility btn-primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-radius: var(--radius);
+  font-weight: 500;
+  transition: background 0.15s ease, transform 0.1s ease;
+  &:hover {
+    background: oklch(from var(--primary) calc(l - 0.05) c h);
+  }
+  &:active {
+    transform: scale(0.98);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+@utility btn-secondary {
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-weight: 500;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  &:hover {
+    background: oklch(from var(--secondary) calc(l - 0.02) c h);
+    border-color: oklch(from var(--border) calc(l - 0.05) c h);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+/* =============================================================================
+   STATUS BADGES - Clear, legible
+   ============================================================================= */
+
+@utility status-requested {
+  background: var(--status-gray-bg);
+  color: var(--status-gray-foreground);
+  border: 1px solid oklch(from var(--status-gray) l c h / 0.2);
+}
+
+@utility status-needs-info {
+  background: var(--status-amber-bg);
+  color: var(--status-amber-foreground);
+  border: 1px solid oklch(from var(--status-amber) l c h / 0.2);
+}
+
+@utility status-queued {
+  background: var(--status-blue-bg);
+  color: var(--status-blue-foreground);
+  border: 1px solid oklch(from var(--status-blue) l c h / 0.2);
+}
+
+@utility status-running {
+  background: var(--status-indigo-bg);
+  color: var(--status-indigo-foreground);
+  border: 1px solid oklch(from var(--status-indigo) l c h / 0.2);
+}
+
+@utility status-done {
+  background: var(--status-green-bg);
+  color: var(--status-green-foreground);
+  border: 1px solid oklch(from var(--status-green) l c h / 0.2);
+}
+
+@utility status-failed {
+  background: var(--status-red-bg);
+  color: var(--status-red-foreground);
+  border: 1px solid oklch(from var(--status-red) l c h / 0.2);
+}
+
+/* =============================================================================
+   SECTION SPACING
+   ============================================================================= */
+
+@utility section-padding {
+  padding-top: 3rem;
+  padding-bottom: 3rem;
+  @media (min-width: 768px) {
+    padding-top: 4rem;
+    padding-bottom: 4rem;
+  }
+  @media (min-width: 1024px) {
+    padding-top: 5rem;
+    padding-bottom: 5rem;
+  }
+}
+
+@utility section-padding-lg {
+  padding-top: 4rem;
+  padding-bottom: 4rem;
+  @media (min-width: 768px) {
+    padding-top: 6rem;
+    padding-bottom: 6rem;
+  }
+  @media (min-width: 1024px) {
+    padding-top: 8rem;
+    padding-bottom: 8rem;
+  }
+}
+
+/* =============================================================================
+   GRID UTILITIES
+   ============================================================================= */
+
+@utility grid-features {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  @media (min-width: 768px) {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2rem;
+  }
+  @media (min-width: 1024px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@utility span-2 {
+  grid-column: span 2;
+}
+
+@utility span-3 {
+  grid-column: span 3;
+}
+
+@utility row-2 {
+  grid-row: span 2;
+}
+
+/* =============================================================================
+   TEXT UTILITIES
+   ============================================================================= */
+
+@utility text-balance {
+  text-wrap: balance;
+}
+
+@utility text-gradient {
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* =============================================================================
+   MARKETING-ONLY EFFECTS (use sparingly, only on [data-surface="marketing"])
+   ============================================================================= */
+
+/* Subtle gradient background for marketing hero - no animation */
+@utility hero-gradient {
+  background: linear-gradient(
+    135deg,
+    oklch(0.98 0.01 270) 0%,
+    oklch(0.96 0.015 250) 50%,
+    oklch(0.98 0.01 195) 100%
+  );
+}
+
+/* Single subtle decorative blob - static, no animation */
+@utility hero-blob {
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: oklch(0.45 0.16 270 / 0.08);
+  filter: blur(80px);
+  pointer-events: none;
+}
+
+/* Subtle accent line */
+@utility accent-line {
+  height: 3px;
+  width: 60px;
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  border-radius: 2px;
+}
+
+/* Feature card with subtle hover - marketing only */
+@utility feature-card {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  padding: 1.5rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  &:hover {
+    border-color: oklch(from var(--primary) l c h / 0.3);
+    box-shadow: var(--shadow-md);
+  }
+}
+
+/* Pricing card highlight */
+@utility pricing-featured {
+  border: 2px solid var(--primary);
+  box-shadow: var(--shadow-lg);
+  position: relative;
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--primary);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+}
+
+/* =============================================================================
+   APP/PORTAL SURFACE RESET
+   Ensure no marketing effects leak into app UI
+   ============================================================================= */
+
+[data-surface="app"] {
+  /* Override any inherited marketing styles */
+  h1 {
+    font-size: 1.5rem;
+    @media (min-width: 768px) {
+      font-size: 1.875rem;
+    }
+  }
+  h2 {
+    font-size: 1.25rem;
+    @media (min-width: 768px) {
+      font-size: 1.5rem;
+    }
+  }
+  h3 {
+    font-size: 1.125rem;
+    @media (min-width: 768px) {
+      font-size: 1.25rem;
+    }
+  }
+}
+
+/* =============================================================================
+   LEGACY CLASS COMPATIBILITY
+   Map old class names to new styles for gradual migration
+   ============================================================================= */
+
+/* glass-card -> card-elevated (no blur) */
+@utility glass-card {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border);
+}
+
+/* gradient-primary -> solid primary button style */
+@utility gradient-primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-radius: var(--radius);
+  font-weight: 500;
+  transition: background 0.15s ease;
+  &:hover {
+    background: oklch(from var(--primary) calc(l - 0.05) c h);
+  }
+}
+
+/* glow-hover -> subtle shadow on hover (kept subtle for all pages) */
+@utility glow-hover {
+  transition: box-shadow 0.2s ease;
+}
+
+/* mesh-gradient -> simple subtle gradient */
+@utility mesh-gradient {
+  background: linear-gradient(
+    180deg,
+    oklch(0.98 0.01 270) 0%,
+    oklch(0.995 0.002 270) 100%
+  );
+}
+
+/* animated-gradient -> static gradient (no animation) */
+@utility animated-gradient {
+  background: linear-gradient(
+    135deg,
+    oklch(0.97 0.01 270) 0%,
+    oklch(0.96 0.015 250) 50%,
+    oklch(0.98 0.01 195) 100%
+  );
+}
+
+/* =============================================================================
+   SURFACE-SCOPED STYLES (use CSS selectors, not utilities)
+   ============================================================================= */
+
+/* Marketing pages: allow glow-hover effect */
+[data-surface="marketing"] .glow-hover:hover {
+  box-shadow: var(--shadow-lg);
+}
+
+/* App/portal pages: disable glow-hover effect */
+[data-surface="app"] .glow-hover:hover {
+  box-shadow: none;
+}
+
+/* App/portal pages: disable decorative gradients */
+[data-surface="app"] .mesh-gradient,
+[data-surface="app"] .animated-gradient {
+  background: transparent;
+}
+
+/* Remove orb effects - make them invisible/no-op */
+@utility orb {
+  display: none;
+}
+
+@utility orb-primary {
+  display: none;
+}
+
+@utility orb-accent {
+  display: none;
+}
+
+@utility orb-pink {
+  display: none;
+}
+
+/* Float and pulse-glow animations removed for performance */
+
+/* Remove shine effect */
+@utility shine {
+  background: transparent;
+}
+
+/* bento-item -> feature-card style */
+@utility bento-item {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  padding: 1.5rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  &:hover {
+    border-color: oklch(from var(--primary) l c h / 0.3);
+    box-shadow: var(--shadow-md);
+  }
+}
+
+@utility bento-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  @media (min-width: 768px) {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+  @media (min-width: 1024px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Progress bar quota variant */
+@utility progress-quota {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--secondary);
+  overflow: hidden;
+}

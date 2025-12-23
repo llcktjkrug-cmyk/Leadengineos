@@ -1,0 +1,206 @@
+{
+  "name": "SEO Opportunity Engine Configuration",
+  "version": "1.0.0",
+  "lastUpdated": "2025-12-15",
+
+  "scoring": {
+    "weights": {
+      "normalizedSearchVolume": 0.35,
+      "cpcWeight": 0.30,
+      "lowCompetitionBonus": 0.25,
+      "agencySerpBonus": 0.10
+    },
+    "thresholds": {
+      "approved": 75,
+      "monitor": 60,
+      "ignore": 0
+    },
+    "statusMapping": {
+      "75-100": "approved",
+      "60-74": "monitor",
+      "0-59": "ignore"
+    }
+  },
+
+  "intentClassification": {
+    "tierA": {
+      "name": "Purchase Intent",
+      "keywords": ["service", "agency", "company", "marketing", "leads"],
+      "pageType": "landing_page"
+    },
+    "tierB": {
+      "name": "Evaluation Intent",
+      "keywords": ["best", "cost", "pricing", "compare"],
+      "pageType": "comparison_page"
+    },
+    "tierC": {
+      "name": "Operator Pain",
+      "keywords": ["why", "problems", "not converting", "doesn't work"],
+      "pageType": "insight_article"
+    },
+    "tierD": {
+      "name": "Informational",
+      "keywords": [],
+      "pageType": "skip"
+    }
+  },
+
+  "pageTypeRules": {
+    "coreMoney": {
+      "condition": "tierA AND geo=national",
+      "template": "core_money_landing_page"
+    },
+    "geoHub": {
+      "condition": "tierA AND geo=(state OR major_metro)",
+      "template": "geo_hub_landing_page"
+    },
+    "comparison": {
+      "condition": "tierB",
+      "template": "comparison_pricing_page"
+    },
+    "insightArticle": {
+      "condition": "tierC",
+      "template": "insight_article"
+    }
+  },
+
+  "verticals": {
+    "medSpa": {
+      "name": "Med Spa",
+      "seedKeywords": [
+        "med spa lead generation",
+        "medical spa marketing service",
+        "med spa marketing agency",
+        "medspa leads",
+        "medical spa advertising",
+        "aesthetic clinic marketing",
+        "med spa patient acquisition",
+        "medical spa seo service"
+      ]
+    },
+    "dentalImplants": {
+      "name": "Dental Implants",
+      "seedKeywords": [
+        "dental implant marketing",
+        "dental implant leads",
+        "implant dentist marketing agency",
+        "dental implant advertising",
+        "dental implant patient acquisition",
+        "dental implant seo service",
+        "implant practice marketing"
+      ]
+    },
+    "multiLocation": {
+      "name": "Multi-location Local SEO",
+      "seedKeywords": [
+        "local seo for multi location business",
+        "multi location seo service",
+        "franchise seo agency",
+        "multi location local marketing",
+        "enterprise local seo",
+        "multi location google business profile"
+      ]
+    }
+  },
+
+  "geoScope": {
+    "national": true,
+    "states": [
+      "California", "Texas", "Florida", "New York", "Illinois",
+      "Pennsylvania", "Ohio", "Georgia", "North Carolina", "Michigan",
+      "New Jersey", "Virginia", "Washington", "Arizona", "Massachusetts",
+      "Tennessee", "Indiana", "Missouri", "Maryland", "Wisconsin",
+      "Colorado", "Minnesota", "South Carolina", "Alabama", "Louisiana"
+    ],
+    "majorMetros": [
+      "New York City", "Los Angeles", "Chicago", "Houston", "Phoenix",
+      "Philadelphia", "San Antonio", "San Diego", "Dallas", "San Jose",
+      "Austin", "Jacksonville", "Fort Worth", "Columbus", "Charlotte",
+      "San Francisco", "Indianapolis", "Seattle", "Denver", "Boston",
+      "Nashville", "Detroit", "Portland", "Las Vegas", "Miami",
+      "Atlanta", "Tampa", "Orlando", "Minneapolis", "Cleveland"
+    ],
+    "excludeSmallCities": true
+  },
+
+  "limits": {
+    "maxPagesPerMonth": {
+      "geoHub": 5,
+      "insightArticle": 10,
+      "comparisonPage": 3,
+      "coreMoney": 2
+    },
+    "maxKeywordsPerScan": 500,
+    "maxLinksPerPage": 2,
+    "minSearchVolume": 100,
+    "maxCompetitionScore": 0.7
+  },
+
+  "scheduling": {
+    "keywordScanner": "weekly",
+    "pageTypeDecision": "on_approval",
+    "geoHubGenerator": "monthly",
+    "geoInsightGenerator": "biweekly",
+    "internalLinkingEnforcer": "daily",
+    "ctrMaintenance": "weekly"
+  },
+
+  "safety": {
+    "dryRunDefault": true,
+    "launchModeRequired": true,
+    "draftByDefault": true,
+    "requireApprovalForPublish": true,
+    "logAllChanges": true,
+    "enableRollback": true,
+    "noAutomationFootprints": true,
+    "noCitySpam": true,
+    "noFakeProof": true,
+    "noAiLabels": true
+  },
+
+  "internalLinking": {
+    "hierarchy": [
+      "insight_article -> geo_hub",
+      "geo_hub -> core_money_page",
+      "geo_hub -> proof_page",
+      "geo_hub -> pricing_page"
+    ],
+    "maxLinksPerPage": 2,
+    "rotateAnchors": true,
+    "forbiddenPatterns": [
+      "city_to_city",
+      "article_to_article_chain"
+    ]
+  },
+
+  "apiRequirements": {
+    "keywordIntelligence": {
+      "description": "Keyword research API for volume, CPC, competition",
+      "providers": ["DataForSEO", "SEMrush", "Ahrefs", "Moz"],
+      "requiredFields": [
+        "monthlySearchVolume",
+        "cpc",
+        "competitionScore",
+        "serpComposition"
+      ]
+    },
+    "serpAnalysis": {
+      "description": "SERP composition analysis",
+      "providers": ["DataForSEO", "SEMrush", "Ahrefs"],
+      "requiredFields": [
+        "topRankingDomains",
+        "serpType"
+      ]
+    },
+    "searchConsole": {
+      "description": "Google Search Console for CTR data",
+      "providers": ["Google Search Console API"],
+      "requiredFields": [
+        "impressions",
+        "clicks",
+        "ctr",
+        "position"
+      ]
+    }
+  }
+}

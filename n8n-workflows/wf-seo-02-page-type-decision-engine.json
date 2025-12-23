@@ -1,0 +1,512 @@
+{
+  "name": "WF-SEO-02: Page Type Decision Engine",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "seo/page-type-decision",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "page-type-decision"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $env.DRY_RUN }}",
+              "value2": "false"
+            }
+          ]
+        }
+      },
+      "id": "dry-run-check",
+      "name": "DRY_RUN Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $env.LAUNCH_MODE }}",
+              "value2": "LIVE"
+            }
+          ]
+        }
+      },
+      "id": "launch-mode-check",
+      "name": "LAUNCH_MODE Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.status }}",
+              "value2": "approved"
+            }
+          ]
+        }
+      },
+      "id": "check-approved",
+      "name": "Check Approved Status",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "value": "A",
+              "output": 0
+            },
+            {
+              "value": "B",
+              "output": 1
+            },
+            {
+              "value": "C",
+              "output": 2
+            },
+            {
+              "value": "D",
+              "output": 3
+            }
+          ]
+        },
+        "dataPropertyName": "intentTier",
+        "fallbackOutput": 3
+      },
+      "id": "intent-tier-switch",
+      "name": "Intent Tier Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 2,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.geo }}",
+              "value2": "national"
+            }
+          ]
+        }
+      },
+      "id": "tier-a-geo-check",
+      "name": "Tier A: Geo Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1250, 100]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Tier A + National = Core Money Landing Page\nconst item = $input.item.json;\n\nreturn {\n  json: {\n    ...item,\n    pageType: 'core_money_landing_page',\n    template: 'core_money',\n    priority: 'high',\n    targetWorkflow: 'WF-SEO-03',\n    decision: 'Build CORE MONEY LANDING PAGE',\n    decisionReason: 'Tier A intent (purchase) + National geo scope'\n  }\n};"
+      },
+      "id": "decision-core-money",
+      "name": "Decision: Core Money Page",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1450, 0]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Tier A + State/Metro = Geo Hub Landing Page\nconst item = $input.item.json;\n\nreturn {\n  json: {\n    ...item,\n    pageType: 'geo_hub_landing_page',\n    template: 'geo_hub',\n    priority: 'high',\n    targetWorkflow: 'WF-SEO-03',\n    decision: 'Build GEO HUB LANDING PAGE',\n    decisionReason: `Tier A intent (purchase) + ${item.geo} geo scope`\n  }\n};"
+      },
+      "id": "decision-geo-hub",
+      "name": "Decision: Geo Hub Page",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1450, 200]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Tier B = Comparison/Pricing Page\nconst item = $input.item.json;\n\nreturn {\n  json: {\n    ...item,\n    pageType: 'comparison_pricing_page',\n    template: 'comparison',\n    priority: 'medium',\n    targetWorkflow: 'WF-SEO-03',\n    decision: 'Build COMPARISON / PRICING LANDING PAGE',\n    decisionReason: 'Tier B intent (evaluation) - comparison seekers'\n  }\n};"
+      },
+      "id": "decision-comparison",
+      "name": "Decision: Comparison Page",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1250, 350]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Tier C = Insight Article (NOT a landing page)\nconst item = $input.item.json;\n\nreturn {\n  json: {\n    ...item,\n    pageType: 'insight_article',\n    template: 'insight_article',\n    priority: 'medium',\n    targetWorkflow: 'WF-SEO-04',\n    decision: 'Build INSIGHT ARTICLE (NOT a landing page)',\n    decisionReason: 'Tier C intent (operator pain) - educational content'\n  }\n};"
+      },
+      "id": "decision-insight",
+      "name": "Decision: Insight Article",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1250, 500]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Tier D = Skip (informational only)\nconst item = $input.item.json;\n\nreturn {\n  json: {\n    ...item,\n    pageType: 'skip',\n    template: null,\n    priority: 'none',\n    targetWorkflow: null,\n    decision: 'SKIP - No page created',\n    decisionReason: 'Tier D intent (informational) - not actionable'\n  }\n};"
+      },
+      "id": "decision-skip",
+      "name": "Decision: Skip",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1250, 650]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "id": "merge-decisions",
+      "name": "Merge Decisions",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "position": [1650, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LEADENGINE_API_URL }}/api/seo/page-decisions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.LEADENGINE_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "store-decision",
+      "name": "Store Decision",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1850, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.pageType }}",
+              "operation": "notEqual",
+              "value2": "skip"
+            }
+          ]
+        }
+      },
+      "id": "filter-actionable",
+      "name": "Filter Actionable",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [2050, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Queue for content generation\nconst item = $input.item.json;\nconst batchId = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;\n\nreturn {\n  json: {\n    ...item,\n    batchId,\n    queuedAt: new Date().toISOString(),\n    status: 'queued_for_generation'\n  }\n};"
+      },
+      "id": "queue-generation",
+      "name": "Queue for Generation",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [2250, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.LEADENGINE_API_URL }}/api/workflow/log",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "={{ $env.LEADENGINE_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"workflowId\": \"WF-SEO-02\",\n  \"workflowName\": \"Page Type Decision Engine\",\n  \"status\": \"completed\",\n  \"keyword\": \"{{ $json.keyword }}\",\n  \"geo\": \"{{ $json.geo }}\",\n  \"decision\": \"{{ $json.decision }}\",\n  \"pageType\": \"{{ $json.pageType }}\",\n  \"executedAt\": \"{{ $now.toISO() }}\"\n}",
+        "options": {}
+      },
+      "id": "log-decision",
+      "name": "Log Decision",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [2450, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, decision: $json.decision, pageType: $json.pageType }) }}",
+        "options": {}
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2650, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{ \"success\": false, \"message\": \"Not approved or skipped\" }",
+        "options": {}
+      },
+      "id": "respond-skipped",
+      "name": "Respond Skipped",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2250, 500]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "DRY_RUN Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DRY_RUN Check": {
+      "main": [
+        [
+          {
+            "node": "LAUNCH_MODE Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LAUNCH_MODE Check": {
+      "main": [
+        [
+          {
+            "node": "Check Approved Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Approved Status": {
+      "main": [
+        [
+          {
+            "node": "Intent Tier Switch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Skipped",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Intent Tier Switch": {
+      "main": [
+        [
+          {
+            "node": "Tier A: Geo Check",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Decision: Comparison Page",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Decision: Insight Article",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Decision: Skip",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tier A: Geo Check": {
+      "main": [
+        [
+          {
+            "node": "Decision: Core Money Page",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Decision: Geo Hub Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decision: Core Money Page": {
+      "main": [
+        [
+          {
+            "node": "Merge Decisions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decision: Geo Hub Page": {
+      "main": [
+        [
+          {
+            "node": "Merge Decisions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decision: Comparison Page": {
+      "main": [
+        [
+          {
+            "node": "Merge Decisions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decision: Insight Article": {
+      "main": [
+        [
+          {
+            "node": "Merge Decisions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decision: Skip": {
+      "main": [
+        [
+          {
+            "node": "Merge Decisions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Decisions": {
+      "main": [
+        [
+          {
+            "node": "Store Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Decision": {
+      "main": [
+        [
+          {
+            "node": "Filter Actionable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Actionable": {
+      "main": [
+        [
+          {
+            "node": "Queue for Generation",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Skipped",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Queue for Generation": {
+      "main": [
+        [
+          {
+            "node": "Log Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Decision": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["seo", "page-type", "decision-engine"],
+  "triggerCount": 0,
+  "updatedAt": "2025-12-15T00:00:00.000Z",
+  "versionId": "1"
+}
