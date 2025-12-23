@@ -11,6 +11,7 @@ const PRODUCTION_ORIGINS = [
   "https://leadengineos.com",
   "https://www.leadengineos.com",
   "https://app.leadengineos.com",
+  "https://leadengineosapp.com",
 ];
 
 const STAGING_ORIGINS = [
