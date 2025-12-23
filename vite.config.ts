@@ -13,6 +13,8 @@ const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(
 export default defineConfig({
 plugins: [
       react(),
+      tailwindcss(), 
+    jsxLocPlugin(),
    vitePluginManusRuntime({
     authUrl: "https://leadengineosapp.com",
     apiUrl: "https://leadengineosapp.com",
