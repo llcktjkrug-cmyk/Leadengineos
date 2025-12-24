@@ -8,16 +8,21 @@ clientSecret: process.env.GITHUB_CLIENT_SECRET!,
 callbackURL: process.env.GITHUB_CALLBACK_URL!
 },
 async (accessToken, refreshToken, profile, done) => {
-try {
-const user = await db.upsertUser({
-openId: `github:${profile.id}`,
-name: profile.displayName || profile.username,
-email: profile.emails?.[0]?.value || null,
-loginMethod: 'github',
-lastSignedIn: new Date(),
-});
-return done(null, user);
-} catch (error) {
+  try {
+    const userEmail = profile.emails?.[0]?.value || ""; // Fallback to empty string
+    console.log('profile',profile)
+    const user = await db.upsertUser({
+      openId: `github:${profile.id}`,
+      name: profile.displayName || profile.username || "GitHub User",
+      email: userEmail, // If your DB doesn't allow NULL, ensure this isn't undefined
+      loginMethod: 'github',
+      lastSignedIn: new Date(),
+    });
+    return done(null, user);
+  } catch (error) {
+    return done(error);
+  }
+}catch (error) {
 return done(error);
 }
 }
