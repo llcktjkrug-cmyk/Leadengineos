@@ -32,14 +32,43 @@ import {
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
-let _db: ReturnType<typeof drizzle> | null = null;
+//let _db: ReturnType<typeof drizzle> | null = null;
+
+//export async function getDb() {
+ // if (!_db && process.env.DATABASE_URL) {
+ //   try {
+ //     _db = drizzle(process.env.DATABASE_URL);
+  //  } catch (error) {
+  //    console.warn("[Database] Failed to connect:", error);
+   //   _db = null;
+  //  }
+ // }
+//  return _db;
+//}
+//import { drizzle } from "drizzle-orm/mysql2";
+import mysql from "mysql2/promise";
+
+let _db: any = null;
 
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      const pool = mysql.createPool({
+        uri: process.env.DATABASE_URL,
+        // TiDB Cloud Serverless requires SSL
+        ssl: {
+          minVersion: 'TLSv1.2',
+          rejectUnauthorized: true
+        },
+        waitForConnections: true,
+        connectionLimit: 10,
+        queueLimit: 0
+      });
+
+      _db = drizzle(pool);
+      console.log("[Database] Connection pool initialized successfully.");
     } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
+      console.error("[Database] Failed to connect:", error);
       _db = null;
     }
   }
