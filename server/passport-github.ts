@@ -11,7 +11,8 @@ async (accessToken: string, refreshToken: string, profile: any, done: any) => {
   try {
     // 1. Handle potential missing email by defaulting to NULL or empty string
     // Ensure this property is NEVER 'undefined'
-    const userEmail = profile.emails?.[0]?.value ?? null; 
+    const userEmail =  profile.emails?.[0]?.value ??
+  `${profile.id}@github.local`;
     
     console.log('GitHub Profile ID:', profile.id);
 
