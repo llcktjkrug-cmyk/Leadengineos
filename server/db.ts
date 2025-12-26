@@ -48,27 +48,28 @@ import { ENV } from "./_core/env";
 //import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
 
-let _db: any = null;
+let _db: ReturnType<typeof drizzle> | null = null;
 
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
       const pool = mysql.createPool({
         uri: process.env.DATABASE_URL,
-        // TiDB Cloud Serverless requires SSL
         ssl: {
-          minVersion: 'TLSv1.2',
-          rejectUnauthorized: true
+    
+          ca: process.env.TIDB_CA_CERT || undefined,
+          rejectUnauthorized: true,
         },
+     
         waitForConnections: true,
         connectionLimit: 10,
         queueLimit: 0
       });
 
       _db = drizzle(pool);
-      console.log("[Database] Connection pool initialized successfully.");
+      console.log("[Database] Connected via SSL");
     } catch (error) {
-      console.error("[Database] Failed to connect:", error);
+      console.error("[Database] Connection failed:", error);
       _db = null;
     }
   }
