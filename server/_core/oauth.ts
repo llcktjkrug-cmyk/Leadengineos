@@ -23,7 +23,7 @@ export function registerOAuthRoutes(app: Express) {
 
 
   app.get('/api/oauth/callback',
-    passport.authenticate('github', { failureRedirect: '/login', session: false }), //
+    passport.authenticate('github', { failureRedirect: '/', session: false }), //
     async (req: Request, res: Response) => {
       try {
         const user = req.user as any; 
