@@ -5,7 +5,8 @@ import * as db from './db';
 passport.use(new GitHubStrategy({
   clientID: process.env.GITHUB_CLIENT_ID!,
   clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-  callbackURL: process.env.GITHUB_CALLBACK_URL!
+  callbackURL: process.env.GITHUB_CALLBACK_URL!,
+  proxy: true
 },
 async (accessToken: string, refreshToken: string, profile: any, done: any) => {
   try {
