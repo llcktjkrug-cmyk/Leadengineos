@@ -168,6 +168,7 @@ class SDKServer {
     openId: string,
     options: { expiresInMs?: number; name?: string } = {}
   ): Promise<string> {
+console.log('Create Session Debug-0548ysytatai:', { openId, options });
     return this.signSession(
       {
         openId,
