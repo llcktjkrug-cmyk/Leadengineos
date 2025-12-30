@@ -101,14 +101,14 @@ export function registerOAuthRoutes(app: Express) {
         const openId = `github:${githubUser.id}`;
         
         // Save user to database
-        await db.upsertUser({
-          openId: openId,
-          // Handle potential missing display names
-          name: githubUser.displayName || githubUser.username || "GitHub User",
-          email: githubUser.emails?.[0]?.value || null,
-          loginMethod: 'github',
-          lastSignedIn: new Date(),
-        });
+        // await db.upsertUser({
+        //   openId: openId,
+        //   // Handle potential missing display names
+        //   name: githubUser.displayName || githubUser.username || "GitHub User",
+        //   email: githubUser.emails?.[0]?.value || null,
+        //   loginMethod: 'github',
+        //   lastSignedIn: new Date(),
+        // });
 
         // Create JWT token using 'jose'
         const token = await new SignJWT({
