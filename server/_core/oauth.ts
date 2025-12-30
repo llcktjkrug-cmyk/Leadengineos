@@ -85,7 +85,7 @@ export function registerOAuthRoutes(app: Express) {
 
   // 3. Callback Route (GitHub redirects back here)
   app.get('/api/oauth/callback',
-    passport.authenticate('github', {  failureRedirect: '/blog' }),
+    passport.authenticate('github', {  failureRedirect: '/blog',session: false }),
     async (req: Request, res: Response) => {
       try {
         // passport-github passes the raw profile to req.user
