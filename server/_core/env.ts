@@ -10,6 +10,6 @@ export const ENV = {
   isStaging: (process.env.VITE_ENVIRONMENT ?? "staging") === "staging",
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
   forgeApiKey: process.env.BUILT_IN_FORGE_API_KEY ?? "",
-  analyticsEndpoint: process.env.VITE_ANALYTICS_ENDPOINT ?? "",
+  // analyticsEndpoint: process.env.VITE_ANALYTICS_ENDPOINT ?? "",
   analyticsWebsiteId: process.env.VITE_ANALYTICS_WEBSITE_ID ?? "",
 };

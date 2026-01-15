@@ -95,7 +95,7 @@ export const apiRateLimiter = rateLimit({
 // Strict rate limit for auth endpoints: 10 attempts per hour
 export const authRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10,
+  max: 100,
   message: { error: "Too many authentication attempts, please try again later", code: "AUTH_RATE_LIMIT_EXCEEDED" },
   standardHeaders: true,
   legacyHeaders: false,
@@ -144,7 +144,7 @@ export const adminApiRateLimiter = rateLimit({
 });
 
 // ============================================================================
-// SECURITY HEADERS - HELMET (P1-002 FIX)
+// SECURITY HEADERS - HELMET (FINAL FIX)
 // ============================================================================
 
 export const helmetConfig = helmet({
@@ -153,39 +153,72 @@ export const helmetConfig = helmet({
       defaultSrc: ["'self'"],
       scriptSrc: [
         "'self'",
-        "'unsafe-inline'", // Required for Vite HMR in dev
+        "'unsafe-inline'",
         "https://js.stripe.com",
         "https://js.revenuecat.com",
+        "https://www.googletagmanager.com",
+        "https://www.google-analytics.com",
+        "https://*.google-analytics.com",
+        "https://*.analytics.google.com",
+        "https://tagassistant.google.com",
+        "https://analytics.manus.im",
+        "https://googleads.g.doubleclick.net", // <--- ADDED
+        "https://www.googleadservices.com",      // <--- ADDED (Often needed with Ads)
       ],
       styleSrc: [
         "'self'",
-        "'unsafe-inline'", // Required for Tailwind
+        "'unsafe-inline'",
         "https://fonts.googleapis.com",
+        "https://tagassistant.google.com",
       ],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https:", "blob:"],
+      fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
+      imgSrc: [
+        "'self'",
+        "data:",
+        "https:",
+        "blob:",
+        "https://www.googletagmanager.com",
+        "https://www.google-analytics.com",
+        "https://googleads.g.doubleclick.net", // <--- ADDED
+        "https://www.google.com",
+        "https://www.googleadservices.com",      // <--- ADDED
+      ],
       connectSrc: [
         "'self'",
         "https://api.stripe.com",
         "https://api.revenuecat.com",
         process.env.N8N_INSTANCE_URL || "",
         process.env.OAUTH_SERVER_URL || "",
-        // Allow Manus staging domains
         "https://*.manusvm.computer",
         "https://*.manus.space",
+        "https://www.googletagmanager.com",
+        "https://www.google-analytics.com",
+        "https://*.google-analytics.com",
+        "https://*.analytics.google.com",
+        "https://tagassistant.google.com",
+        "https://analytics.manus.im",
+        "https://www.google.com",
+        "https://googleads.g.doubleclick.net", // <--- ADDED
+        "https://www.googleadservices.com",      // <--- ADDED
       ].filter(Boolean),
-      frameSrc: ["'self'", "https://js.stripe.com"],
+      frameSrc: [
+        "'self'",
+        "https://js.stripe.com",
+        "https://www.googletagmanager.com",
+        "https://tagassistant.google.com",
+        "https://googleads.g.doubleclick.net", // <--- ADDED
+      ],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
       formAction: ["'self'"],
       upgradeInsecureRequests: process.env.NODE_ENV === "production" ? [] : null,
     },
   },
-  crossOriginEmbedderPolicy: false, // Allow embedding for OAuth flows
-  crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }, // Allow OAuth popups
-  crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow cross-origin resource loading
+  crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+  crossOriginResourcePolicy: { policy: "cross-origin" },
   hsts: process.env.NODE_ENV === "production" ? {
-    maxAge: 31536000, // 1 year
+    maxAge: 31536000,
     includeSubDomains: true,
     preload: true,
   } : false,
@@ -194,7 +227,6 @@ export const helmetConfig = helmet({
   xFrameOptions: { action: "deny" },
   xXssProtection: true,
 });
-
 // ============================================================================
 // REQUEST SANITIZATION
 // ============================================================================

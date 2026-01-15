@@ -31,6 +31,7 @@ import {
   type ContentTemplate,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
+import { nanoid } from "nanoid";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -94,6 +95,9 @@ export async function upsertUser(user: InsertUser): Promise<void> {
     if (user.tenantId !== undefined) {
       values.tenantId = user.tenantId;
       updateSet.tenantId = user.tenantId;
+    } else if (user.tenantId === null) {
+      values.tenantId = null;
+      updateSet.tenantId = null;
     }
 
     if (!values.lastSignedIn) {
@@ -752,4 +756,113 @@ export async function updateTenantStatus(tenantId: number, status: "active" | "p
   if (!db) return;
 
   await db.update(tenants).set({ status }).where(eq(tenants.id, tenantId));
+}
+
+
+
+// ============================================================================
+// new db functions can be added here
+// ============================================================================
+
+export async function createTenantForUser(
+  userId: number,
+  userName: string
+): Promise<number> {
+  try {
+    console.log("[createTenantForUser] Start", { userId, userName });
+
+    const db = await getDb();
+    if (!db) {
+      throw new Error("Database not available");
+    }
+
+    const baseSlug = (userName || "user")
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "-")
+      .replace(/-+/g, "-")
+      .substring(0, 20);
+
+    const uniqueSlug = `${baseSlug}-${Date.now()}`;
+
+    console.log("[createTenantForUser] Creating tenant", { uniqueSlug });
+
+    const [result] = await db.insert(tenants).values({
+      name: `${userName || "User"}'s Workspace`,
+      slug: uniqueSlug,
+      apiKey: nanoid(32),
+      status: "active",
+      vertical: "med_spa",
+    });
+
+    if (!result?.insertId) {
+      throw new Error("Tenant insert failed: insertId not returned");
+    }
+
+    const tenantId = Number(result.insertId);
+
+    console.log("[createTenantForUser] Tenant created", { tenantId });
+
+    await db
+      .update(users)
+      .set({ tenantId })
+      .where(eq(users.id, userId));
+
+    console.log("[createTenantForUser] User updated with tenant", {
+      userId,
+      tenantId,
+    });
+
+    return tenantId;
+  } catch (error) {
+    console.error("[createTenantForUser] Error", error);
+    throw error;
+  }
+}
+
+export async function getUserWithTenant(
+  openId: string
+): Promise<any | undefined> {
+  try {
+    console.log("[getUserWithTenant] Start", { openId });
+
+    const db = await getDb();
+    if (!db) {
+      throw new Error("Database not available");
+    }
+
+    const result = await db
+      .select()
+      .from(users)
+      .where(eq(users.openId, openId))
+      .limit(1);
+
+    if (result.length === 0) {
+      console.warn("[getUserWithTenant] User not found", { openId });
+      return undefined;
+    }
+
+    const user = result[0];
+
+    if (!user.tenantId) {
+      console.log("[getUserWithTenant] Tenant missing, creating one", {
+        userId: user.id,
+      });
+
+      const tenantId = await createTenantForUser(
+        user.id,
+        user.name || "User"
+      );
+
+      return { ...user, tenantId };
+    }
+
+    console.log("[getUserWithTenant] User already has tenant", {
+      tenantId: user.tenantId,
+    });
+
+    return user;
+  } catch (error) {
+    console.error("[getUserWithTenant] Error", error);
+    throw error;
+  }
 }

@@ -101,11 +101,36 @@ export const appRouter = router({
 
   auth: router({
     me: publicProcedure.query(({ ctx }) => ctx.user),
+    // logout: publicProcedure.mutation(({ ctx }) => {
+    //   const cookieOptions = getSessionCookieOptions(ctx.req);
+    //   ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+    //   return { success: true } as const;
+    // }),
     logout: publicProcedure.mutation(({ ctx }) => {
-      const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return { success: true } as const;
-    }),
+  try {
+    console.log("[LOGOUT] Logout mutation called");
+
+    console.log("[LOGOUT] Incoming cookies:", ctx.req.headers.cookie);
+
+    const cookieOptions = getSessionCookieOptions(ctx.req);
+
+    console.log("[LOGOUT] Cookie options used:", cookieOptions);
+    console.log("[LOGOUT] Clearing cookie:", COOKIE_NAME);
+
+    ctx.res.clearCookie(COOKIE_NAME, {
+      ...cookieOptions,
+      maxAge: -1,
+    });
+
+    console.log("[LOGOUT] Cookie cleared successfully");
+
+    return { success: true } as const;
+  } catch (error) {
+    console.error("[LOGOUT] Logout failed:", error);
+    throw error; 
+  }
+}),
+
   }),
 
   // ============================================================================

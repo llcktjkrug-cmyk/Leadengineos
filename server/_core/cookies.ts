@@ -84,7 +84,8 @@ export function getSessionCookieOptions(
     httpOnly: true,
     path: "/",
     sameSite,
-    secure: isSecure,
+    // secure: isSecure,
+    secure: isSecure, // TEMPORARY FOR TESTING ON NON-HTTPS
   };
 }
 
